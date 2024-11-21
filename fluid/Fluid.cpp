@@ -1,5 +1,5 @@
-
 #include "Fluid.h"
+#include <algorithm>
 
 // Zero the fluid simulation member variables for sanity
 Fluid::Fluid() 
@@ -18,7 +18,7 @@ Fluid::Fluid()
 	num_neighbors = 0;
 	// If this value is too small, ExpandNeighbors will fix it
 	neighbors_capacity = 263 * 1200;
-	neighbors = new FluidNeighborRecord[ neighbors_capacity ];
+	neighbors.resize(neighbors_capacity);
 
 	// Precompute kernel coefficients
 	// See "Particle-Based Fluid Simulation for Interactive Applications"
@@ -37,7 +37,8 @@ Fluid::~Fluid()
 	delete[] gridoffsets; gridoffsets = NULL;
 	num_neighbors = 0;
 	neighbors_capacity = 0;
-	delete[] neighbors; neighbors = neighbors;
+	//delete[] neighbors; neighbors = neighbors;
+	neighbors.clear();
 }
 
 // Create the fluid simulation
@@ -106,10 +107,7 @@ __forceinline void Fluid::ExpandNeighbors()
 {
 	// Increase the size of the neighbors array because it is full
 	neighbors_capacity += 20;
-	FluidNeighborRecord* new_neighbors = new FluidNeighborRecord[ neighbors_capacity ];
-	memcpy( new_neighbors, neighbors, sizeof(FluidNeighborRecord) * num_neighbors );
-	delete[] neighbors;
-	neighbors = new_neighbors;
+	neighbors.resize(neighbors_capacity);
 }
 
 // Simulation Update
@@ -118,42 +116,45 @@ __forceinline void Fluid::ExpandNeighbors()
 // in our cell and the 8 adjacent cells
 void Fluid::UpdateGrid() 
 {
-	// Cell size is the smoothing length
-
+	int P = particles.size();
+	int S = grid_w * grid_h;
 	// Clear the offsets
-	for( int offset = 0; offset < (grid_w * grid_h); offset++ ) 
-	{
+	for (int offset = 0; offset < S; offset++) {
 		gridoffsets[offset].count = 0;
 	}
+	// Map particles to cells and count
+	std::vector<int> particleToCell(P);
+#pragma omp parallel for
+	for (unsigned int particle = 0; particle < P; particle++) {
+		int p_gx = std::clamp((int)(particle_at(particle)->pos.x * (1.0 / FluidSmoothLen)), 0, grid_w - 1);
+		int p_gy = std::clamp((int)(particle_at(particle)->pos.y * (1.0 / FluidSmoothLen)), 0, grid_h - 1);
+		int cell = p_gy * grid_w + p_gx;
 
-	// Count the number of particles in each cell
-	for( unsigned int particle = 0; particle < particles.size(); particle++ ) 
-	{
-		// Find where this particle is in the grid
-		int p_gx = min(max((int)(particle_at(particle)->pos.x * (1.0 / FluidSmoothLen)), 0), grid_w - 1);
-		int p_gy = min(max((int)(particle_at(particle)->pos.y * (1.0 / FluidSmoothLen)), 0), grid_h - 1);
-		int cell = p_gy * grid_w + p_gx ;
-		gridoffsets[ cell ].count++;
+		particleToCell[particle] = cell;
+#pragma omp atomic
+		gridoffsets[cell].count++;
 	}
 
-	// Prefix sum all of the cells
+	// Compute prefix sum for offsets
 	unsigned int sum = 0;
-	for( int offset = 0; offset < (grid_w * grid_h); offset++ ) 
-	{
+	for (int offset = 0; offset < S; offset++) {
+		unsigned int temp = gridoffsets[offset].count;
 		gridoffsets[offset].offset = sum;
-		sum += gridoffsets[offset].count;
-		gridoffsets[offset].count = 0;
+		sum += temp;
+		gridoffsets[offset].count = 0; // Reset count for next phase
 	}
 
-	// Insert the particles into the grid
-	for( unsigned int particle = 0; particle < particles.size(); particle++ ) 
-	{
-		// Find where this particle is in the grid
-		int p_gx = min(max((int)(particle_at(particle)->pos.x * (1.0 / FluidSmoothLen)), 0), grid_w - 1);
-		int p_gy = min(max((int)(particle_at(particle)->pos.y * (1.0 / FluidSmoothLen)), 0), grid_h - 1);
-		int cell = p_gy * grid_w + p_gx ;
-		gridindices[ gridoffsets[ cell ].offset + gridoffsets[ cell ].count ] = particle;
-		gridoffsets[ cell ].count++;
+	// Insert particles into the grid
+#pragma omp parallel for
+	for (unsigned int particle = 0; particle < P; particle++) {
+		int cell = particleToCell[particle];
+		unsigned int index;
+
+		// Atomic operation to ensure correct indexing
+#pragma omp atomic capture
+		index = gridoffsets[cell].offset + gridoffsets[cell].count++;
+
+		gridindices[index] = particle;
 	}
 }
 
@@ -169,15 +170,19 @@ void Fluid::GetNeighbors()
 	for( unsigned int P = 0; P < particles.size(); P++ )
 	{
 		// Find where this particle is in the grid
-		int p_gx = min(max((int)(particle_at(P)->pos.x * (1.0f / FluidSmoothLen)), 0), grid_w - 1);
-		int p_gy = min(max((int)(particle_at(P)->pos.y * (1.0f / FluidSmoothLen)), 0), grid_h - 1);
-		int cell = p_gy * grid_w + p_gx ;
 		D3DXVECTOR2 pos_P = particle_at(P)->pos;
+		int p_x = std::clamp(static_cast<int>(pos_P.x * (1.0f / FluidSmoothLen)), 0, grid_w - 1);
+		int p_y = std::clamp(static_cast<int>(pos_P.y * (1.0f / FluidSmoothLen)), 0, grid_h - 1);
+		int p_gx = p_x < 1 ? 0 : -1;
+		int p_gy = p_y < 1 ? 0 : -1;
+		int p_ggx = p_x < grid_w - 1 ? 1 : 0;
+		int p_ggy = p_y < grid_h - 1 ? 1 : 0;
+		int cell = p_y * grid_w + p_x;
 
 		// For every adjacent grid cell (9 cells total for 2D)
-		for (int d_gy = ((p_gy<1)?0:-1); d_gy <= ((p_gy<grid_h-1)?1:0); d_gy++) 
+		for (int d_gy = p_gy; d_gy <= p_ggy; d_gy++)
 		{
-			for (int d_gx = ((p_gx<1)?0:-1); d_gx <= ((p_gx<grid_w-1)?1:0); d_gx++) 
+			for (int d_gx = p_gx; d_gx <= p_ggx; d_gx++)
 			{
 				// Neighboring cell
 				int n_cell = cell + d_gy * grid_w + d_gx; 

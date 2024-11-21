@@ -55,4 +55,25 @@ particle_at > 인덱스로 바로 찾도록 바꿈
 R : 140fps
 }
 
+Standard of Fill Value : 1.f
+
+{
+S : 31.98f
+C : UpdateGrid() 부분 코드 최적화 및 병렬 구조로 실행
+R : 29~30f > 별 차이 없음
+}
+
+{
+S : 30.f
+C : GetNeighbors() 4중 for문 부분 코드 최적화
+R : 30.f > 별 차이 없음
+}
+
+{
+S : 30.f
+C : 
+std::vector<FluidNeighborRecord> neighbors; 와 같이 변경 후 ExpandNeighbors() 부분 resize()함수로 대체
+R : 40~50.f > 초반 실행 속도 향상 및 평균 속도 향상
+}
+
 

@@ -63,7 +63,7 @@ class Fluid
 		FluidGridOffset * gridoffsets;
 		unsigned int neighbors_capacity;
 		unsigned int num_neighbors;
-		FluidNeighborRecord * neighbors;
+		std::vector<FluidNeighborRecord> neighbors;
 		
 		unsigned int Size()					{ return particles.size(); }
 		unsigned int Step()					{ return step; }
