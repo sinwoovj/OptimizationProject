@@ -1,0 +1,58 @@
+///
+Start : 
+Changed :
+Result :
+///
+
+2024-11-21
+
+Standard of Fill Value : 0.1f
+
+{
+S : 0.38fps
+C : 프로젝트 속성 > C/C++ > 최적화 > 최대 최적화(속도 우선)(/O2)
+R : 0.96fps
+}
+
+{
+S : 0.96fps
+C : 프로젝트 속성 > 고급 > 디버그 라이브러리 사용
+R : 19.38fps
+}
+
+Standard of Fill Value : 0.2f
+
+{
+S : 0.8fps
+C : C/C++ > 고급 > 호출규칙 _cdecl -> fastCall
+R : 0.79fps
+}
+
+{
+S : 0.8fps
+C : particles > list 자료형에서 vector로 전환
+R : 250~300fps
+}
+
+Standard of Fill Value : 0.5f
+
+{
+S : 5fps
+C : FluidNeighborRecord * 를 vector<FluidNeighborRecord>로 전환 + memspy로 자료 크기를
+바꾸던 것을 vector의 resize 함수로 바꿈
+R : 5.5fps
+}
+
+// 갈아 엎음
+
+Standard of Fill Value : 0.5f
+
+{
+C : 
+프로젝트 속성 > C/C++ > 최적화 > 최대 최적화(속도 우선)(/O2)
+particles > list 자료형에서 vector로 전환
+particle_at > 인덱스로 바로 찾도록 바꿈
+R : 140fps
+}
+
+

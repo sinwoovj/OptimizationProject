@@ -1,3 +1,5 @@
 .vs/**
 fluid/Debug/**
 Debug/**
+fluid/Release/**
+Release/**
