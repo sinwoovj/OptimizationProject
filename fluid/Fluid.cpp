@@ -106,7 +106,7 @@ void Fluid::Clear()
 __forceinline void Fluid::ExpandNeighbors() 
 {
 	// Increase the size of the neighbors array because it is full
-	neighbors_capacity += 20;
+	neighbors_capacity += 200;
 	neighbors.resize(neighbors_capacity);
 }
 
@@ -227,7 +227,8 @@ void Fluid::GetNeighbors()
 // Compute the density for each particle based on its neighbors within the smoothing length
 void Fluid::ComputeDensity() 
 {
-	for( unsigned int particle = 0; particle < particles.size(); particle++ )
+	int P = particles.size();
+	for( unsigned int particle = 0; particle < P; particle++ )
 	{
 		// This is r = 0
 		particle_at(particle)->density = (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * FluidWaterMass;
