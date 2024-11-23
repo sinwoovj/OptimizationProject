@@ -65,7 +65,7 @@ void Fluid::Fill(double size)
 	gridindices = new unsigned int[ w * w ];
 	for (int i = 0; i < w*w; i++)
 	{
-		Particle* p = new Particle;
+		//Particle* p = new Particle;
 		particles.emplace_back();
 	}
 
@@ -216,45 +216,38 @@ void Fluid::GetNeighbors()
 	
 // Simulation Update
 // Compute the density for each particle based on its neighbors within the smoothing length
-void Fluid::ComputeDensity() 
-{
-	int P = particles.size();
-	double PM = (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * FluidWaterMass;
-	for( unsigned int particle = 0; particle < P; particle++ )
-	{
-		// This is r = 0
-		particle_at(particle).density = PM;
-	}
+void Fluid::ComputeDensity() {
+    int P = particles.size();
+    double PM = (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * (FluidSmoothLen * FluidSmoothLen) * FluidWaterMass;
 
-	// foreach neighboring pair of particles
-	for( unsigned int i = 0; i < num_neighbors ; i++ ) 
-	{		
-		// distance squared
-		double r2 = neighbors[i].distsq;
-		
-		// Density is based on proximity and mass
-		// Density is:
-		// M_n * W(h, r)
-		// Where the smoothing kernel is:
-		// The the "Poly6" kernel
-		double h2_r2 = FluidSmoothLen * FluidSmoothLen - r2;
-		double dens = h2_r2*h2_r2*h2_r2;
+#pragma omp parallel for
+    for (unsigned int particle = 0; particle < P; particle++) {
+        particle_at(particle).density = PM;
+    }
 
-		double P_mass = FluidWaterMass;
-		double N_mass = FluidWaterMass;
-		 
-		particle_at(neighbors[i].p).density += N_mass * dens;
-		particle_at(neighbors[i].n).density += P_mass * dens;
-	}
+#pragma omp parallel for
+    for (unsigned int i = 0; i < num_neighbors; i++) {
+        double r2 = neighbors[i].distsq;
+        double h2_r2 = FluidSmoothLen * FluidSmoothLen - r2;
+        double dens = h2_r2 * h2_r2 * h2_r2;
 
-	// Approximate pressure as an ideal compressible gas
-	// based on a spring eqation relating the rest density
-	for( unsigned int particle = 0 ; particle < particles.size(); ++particle )
-	{
-		particle_at(particle).density *= poly6_coef;
-		particle_at(particle).pressure = FluidStiff * max(pow(particle_at(particle).density / FluidRestDensity, 3) - 1, 0);
-	}
+        double P_mass = FluidWaterMass;
+        double N_mass = FluidWaterMass;
+
+#pragma omp atomic
+        particle_at(neighbors[i].p).density += N_mass * dens;
+
+#pragma omp atomic
+        particle_at(neighbors[i].n).density += P_mass * dens;
+    }
+
+#pragma omp parallel for
+    for (unsigned int particle = 0; particle < P; ++particle) {
+        particle_at(particle).density *= poly6_coef;
+        particle_at(particle).pressure = FluidStiff * max(pow(particle_at(particle).density / FluidRestDensity, 3) - 1, 0.0);
+    }
 }
+
 
 // Simulation Update
 // Perform a batch of sqrts to turn distance squared into distance

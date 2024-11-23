@@ -66,7 +66,7 @@ class Fluid
 		/* Common Data */
 		unsigned int * gridindices;
 		std::vector<Particle> particles;
-
+		std::vector<int> particleToCell;
 		FluidGridOffset * gridoffsets;
 		unsigned int neighbors_capacity;
 		unsigned int num_neighbors;
