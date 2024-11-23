@@ -76,4 +76,25 @@ std::vector<FluidNeighborRecord> neighbors; 와 같이 변경 후 ExpandNeighbor
 R : 40~50.f > 초반 실행 속도 향상 및 평균 속도 향상
 }
 
+2024-11-22
+
+Standard of Fill Value : 1.f
+
+Standard of Step : 600
+
+{
+S : 26~27.f
+C : 
+프로젝트 속성에서 C / C++ > 부동 소수점 모델 > fast 및 예외 처리 안함
+프로젝트 속성에서 C / C++ > 부동 소수점 예외 사용 > 사용 안함
+R : 29.f > 초반 실행 속도 향상 및 평균 속도 향상
+}
+
+{
+S : 29.f
+C : 
+std::vector<Particle*> 대신 std::vector<Particle>를 사용하여 데이터가 연속적으로 저장되도록 하면 캐시 효율성이 증가할것으로 예상
+R : 32.f > 초반 실행 속도 향상 및 평균 속도 향상
+}
+
 

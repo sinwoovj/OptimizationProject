@@ -18,6 +18,13 @@ const double FluidViscosity = 0.1f;
 const double FluidStiff = 200.0f;
 const double FluidInitialSpacing = 0.0045f;
 
+// "Poly 6" Kernel - Used for Density
+const double poly6_coef = 315.0f / (64.0f * D3DX_PI * pow(FluidSmoothLen, 9));
+// Gradient of the "Spikey" Kernel - Used for Pressure
+const double grad_spiky_coef = -45.0f / (D3DX_PI * pow(FluidSmoothLen, 6));
+// Laplacian of the "Viscosity" Kernel - Used for Viscosity
+const double lap_vis_coef = 45.0f / (D3DX_PI * pow(FluidSmoothLen, 6));
+
 /*****************************************************************************/
 
 struct FluidNeighborRecord 
@@ -58,12 +65,12 @@ class Fluid
 
 		/* Common Data */
 		unsigned int * gridindices;
-		std::vector<Particle*> particles;
+		std::vector<Particle> particles;
 
 		FluidGridOffset * gridoffsets;
 		unsigned int neighbors_capacity;
 		unsigned int num_neighbors;
-		std::vector<FluidNeighborRecord> neighbors;
+		static FluidNeighborRecord neighbors[];
 		
 		unsigned int Size()					{ return particles.size(); }
 		unsigned int Step()					{ return step; }
@@ -71,9 +78,9 @@ class Fluid
 		void PauseOnStep( unsigned int p )	{ pause_step = p; }
 		double Width()						{ return width; }
 		double Height()						{ return height; }
-		Particle* particle_at(std::size_t index);
+		Particle& particle_at(std::size_t index);
 
-	private:
+
 		
 		/* Simulation */
 		void UpdateGrid();
@@ -95,9 +102,4 @@ class Fluid
 		double height;
 		int grid_w;
 		int grid_h;
-
-		/* Coefficients for kernel */
-		double poly6_coef;
-		double grad_spiky_coef;
-		double lap_vis_coef;
 };
